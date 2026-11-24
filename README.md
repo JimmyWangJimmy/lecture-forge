@@ -9,6 +9,8 @@
   <img alt="Deps" src="https://img.shields.io/badge/deps-zero%20(except%20pdf)-lightgrey.svg">
 </p>
 
+![讲义首屏：入门版卡片 + 公式 + 提示块](docs/screenshots/hero.webp)
+
 ---
 
 ## 为什么做这个
@@ -69,6 +71,18 @@ python3 scripts/check.py 讲义.html
 └── 1.2 ...
 ```
 
+**动画与代码** —— 抽象过程拆成 3–5 步，点播放自动演；代码逐行注释：
+
+![动画：四步走完一个矢量算子](docs/screenshots/anim.webp)
+
+**对比表与公式** —— 公式自动编号、可交叉引用；对比不用段落描述：
+
+![公式与对比表](docs/screenshots/table.webp)
+
+**深色模式** —— 记在 localStorage，重开还是深色：
+
+![深色主题](docs/screenshots/dark.webp)
+
 技术上：
 
 | 特性 | 做法 |
@@ -95,9 +109,11 @@ lecture-forge/
 │   ├── doc.css             讲义样式（GitBook 风格）
 │   ├── katex.css           KaTeX 样式（含字体 base64）
 │   └── katex.js            KaTeX 运行时
-└── examples/
-    ├── demo.json           最小样例输入
-    └── demo-output.html    渲染结果（可直接打开看）
+├── examples/
+│   ├── demo.json           最小样例输入（2 章，覆盖全部 block 类型）
+│   └── demo-output.html    渲染结果（可直接打开看）
+└── docs/
+    └── screenshots/        README 用的效果图
 ```
 
 ---

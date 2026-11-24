@@ -1,25 +1,49 @@
 {
   "title": "示例讲义：从函数到芯片",
-  "subtitle": "验证模板渲染管线",
+  "subtitle": "验证模板渲染管线 · 覆盖全部 block 类型",
   "kicker": "讲义精读",
   "chapters": [
     {
       "title": "从函数到芯片",
       "lead": "先看一条主线：模型怎么落到硬件上。",
       "primer": {
-        "items": ["大模型是复合函数", "NPU 有三类计算单元", "Roofline 决定瓶颈在哪"],
+        "items": ["大模型是复合函数，拆开是算子", "NPU 有三类计算单元分工", "Roofline 决定瓶颈在算力还是带宽"],
         "key": "I=\\frac{\\text{FLOPs}}{\\text{Bytes}}"
       },
       "sections": [
         {
           "title": "1.1 三个计算单元",
           "blocks": [
-            {"type": "p", "text": "DaVinci 架构把计算分成 Cube、Vector、Scalar 三块，各自管不同粒度的运算。"},
-            {"type": "eq", "tex": "T = \\frac{\\text{Bytes}}{\\mathrm{BW}}", "num": "(1)"},
-            {"type": "callout", "kind": "tip", "title": "记忆方法", "text": "Cube 算矩阵、Vector 算逐元素、Scalar 管流程控制。"},
-            {"type": "table", "head": ["单元", "管什么", "算力占比"], "rows": [["Cube", "矩阵运算", "90% FLOPs"], ["Vector", "逐元素", "<10%"], ["Scalar", "标量/控制", "可忽略"]]},
-            {"type": "anim", "kind": "steps", "title": "一次算子执行", "items": ["从 GM 搬入 UB", "在 UB 上做矢量计算", "结果写回 GM"], "cap": "三步走完一个矢量算子"},
-            {"type": "code", "lang": "cpp", "text": "__global__ __vector__ void add(__gm__ float* x, __gm__ float* y, __gm__ float* z)\n{\n    asc_copy_gm2ub(x_local, x, len);\n    asc_add(z_local, x_local, y_local, len);\n    asc_copy_ub2gm(z, z_local, len);\n}"}
+            {"type": "p", "text": "DaVinci 架构把计算分成 Cube、Vector、Scalar 三块。不是三个芯片，是同一个 AI Core 里的三个单元，各自管不同粒度的运算。"},
+            {"type": "eq", "tex": "T_{\\text{step}} = \\frac{\\text{Bytes}}{\\mathrm{BW}} + \\frac{\\text{FLOPs}}{P_{\\text{peak}}}", "num": "(1)"},
+            {"type": "callout", "kind": "tip", "title": "一句话记住", "text": "Cube 算矩阵、Vector 算逐元素、Scalar 管流程控制。矢量算子只用 AIV，所以只碰 GM 和 UB 两级。"},
+            {"type": "table", "head": ["单元", "管什么", "算力占比", "典型算子"], "rows": [["Cube (AIC)", "矩阵乘法", "90% FLOPs", "Q×Kᵀ、FFN 投影"], ["Vector (AIV)", "逐元素运算", "<10%", "SiLU、RMSNorm、Add"], ["Scalar", "标量与控制流", "可忽略", "循环、判断、地址计算"]]}
+          ]
+        },
+        {
+          "title": "1.2 一次算子怎么跑完",
+          "blocks": [
+            {"type": "p", "text": "矢量算子的数据流只有一条主线：GM → UB → 计算 → UB → GM。所有优化都在这一条线上做减法。"},
+            {"type": "anim", "title": "四步走完一个矢量算子", "items": ["Tiling：算出每核负责哪一段", "搬入：asc_copy_gm2ub 把数据搬上片", "计算：在 UB 上做矢量运算，全程不碰 GM", "搬出：asc_copy_ub2gm 把结果写回"], "cap": "点播放，四步依次点亮"},
+            {"type": "code", "lang": "cpp", "text": "__vector__ __global__ void add_custom(__gm__ float* x, __gm__ float* y, __gm__ float* z)\n{\n    asc_init();\n    constexpr uint32_t len = TOTAL_LENGTH / NUM_BLOCKS;\n    __ubuf__ float xl[len], yl[len], zl[len];\n\n    asc_copy_gm2ub(xl, x + block_idx * len, len * sizeof(float));\n    asc_sync();                       // 等搬完，否则读到垃圾\n\n    asc_add(zl, xl, yl, len);\n    asc_sync();                       // 等算完，否则写回半成品\n\n    asc_copy_ub2gm(z + block_idx * len, zl, len * sizeof(float));\n}"}
+          ]
+        }
+      ]
+    },
+    {
+      "title": "为什么流水线是 3 倍",
+      "lead": "三工序（搬入/计算/写回）做成流水线，理论上限就是这个数。",
+      "primer": {
+        "items": ["串行：每块都要搬、算、写，n 块要 3n 拍", "流水：第一块填满后每拍出一块，共 n+2 拍", "加速比趋近 3，但每个 sync 都会打断它"],
+        "key": "S(n)=\\frac{3n}{n+2}\\;\\xrightarrow{n\\to\\infty}\\;3"
+      },
+      "sections": [
+        {
+          "title": "2.1 两种执行方式",
+          "blocks": [
+            {"type": "eq", "tex": "T_{\\text{串行}} = 3n \\qquad T_{\\text{流水}} = n + 2", "num": "(2)"},
+            {"type": "callout", "kind": "warn", "title": "这就是 sync 的代价", "text": "入门样例里每步都加 asc_sync()，它要求前面全部完成——等于把流水线退回串行。所以「跑通」和「跑快」是两件事。"},
+            {"type": "list", "items": ["先求对：sync 宁多勿少", "再求快：把粗粒度 sync 换成细粒度的 SetFlag/WaitFlag", "最后测：用 profiler 看 Free 时间是不是真的降下来了"]}
           ]
         }
       ]

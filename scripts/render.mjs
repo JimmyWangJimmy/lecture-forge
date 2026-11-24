@@ -180,7 +180,7 @@ ${body}
         t = setInterval(function(){
           if (i >= steps.length) { clearInterval(t); cap.textContent = base; return; }
           steps[i].classList.add('on');
-          cap.textContent = steps[i].textContent.replace(/^\d+/, '').trim();
+          cap.textContent = steps[i].textContent.replace(/^[\\s\\d]+/, '').trim();
           i++;
         }, 1100);
       }
