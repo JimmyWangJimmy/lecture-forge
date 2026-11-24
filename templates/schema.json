@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Lecture JSON",
+  "type": "object",
+  "required": ["title", "chapters"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 40, "description": "讲义标题，不超过 20 字" },
+    "subtitle": { "type": "string", "maxLength": 80, "description": "一句话说明" },
+    "kicker": { "type": "string", "default": "讲义精读", "description": "左上角小标签" },
+    "chapters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["title", "sections"],
+        "properties": {
+          "title": { "type": "string" },
+          "lead": { "type": "string", "description": "这一章在讲什么，一句话" },
+          "primer": {
+            "type": "object",
+            "description": "入门版卡片：3 条要点 + 1 个关键公式",
+            "properties": {
+              "items": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 5 },
+              "key": { "type": "string", "description": "LaTeX（不带 $）或一句结论" }
+            }
+          },
+          "sections": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["title", "blocks"],
+              "properties": {
+                "title": { "type": "string" },
+                "blocks": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["type"],
+                    "properties": {
+                      "type": { "enum": ["p", "callout", "eq", "table", "code", "list", "anim", "img"] },
+                      "text": { "type": "string" },
+                      "kind": { "enum": ["plain", "tip", "warn"] },
+                      "title": { "type": "string" },
+                      "tex": { "type": "string", "description": "LaTeX 源码，不带 $ 包裹" },
+                      "num": { "type": "string", "description": "公式编号，如 (1)；省略则自动递增" },
+                      "head": { "type": "array", "items": { "type": "string" } },
+                      "rows": { "type": "array", "items": { "type": "array", "items": { "type": "string" } } },
+                      "lang": { "type": "string" },
+                      "items": { "type": "array", "items": { "type": "string" } },
+                      "cap": { "type": "string" },
+                      "src": { "type": "string", "description": "图片地址：data URI 或相对路径" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

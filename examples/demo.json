@@ -1,0 +1,28 @@
+{
+  "title": "示例讲义：从函数到芯片",
+  "subtitle": "验证模板渲染管线",
+  "kicker": "讲义精读",
+  "chapters": [
+    {
+      "title": "从函数到芯片",
+      "lead": "先看一条主线：模型怎么落到硬件上。",
+      "primer": {
+        "items": ["大模型是复合函数", "NPU 有三类计算单元", "Roofline 决定瓶颈在哪"],
+        "key": "I=\\frac{\\text{FLOPs}}{\\text{Bytes}}"
+      },
+      "sections": [
+        {
+          "title": "1.1 三个计算单元",
+          "blocks": [
+            {"type": "p", "text": "DaVinci 架构把计算分成 Cube、Vector、Scalar 三块，各自管不同粒度的运算。"},
+            {"type": "eq", "tex": "T = \\frac{\\text{Bytes}}{\\mathrm{BW}}", "num": "(1)"},
+            {"type": "callout", "kind": "tip", "title": "记忆方法", "text": "Cube 算矩阵、Vector 算逐元素、Scalar 管流程控制。"},
+            {"type": "table", "head": ["单元", "管什么", "算力占比"], "rows": [["Cube", "矩阵运算", "90% FLOPs"], ["Vector", "逐元素", "<10%"], ["Scalar", "标量/控制", "可忽略"]]},
+            {"type": "anim", "kind": "steps", "title": "一次算子执行", "items": ["从 GM 搬入 UB", "在 UB 上做矢量计算", "结果写回 GM"], "cap": "三步走完一个矢量算子"},
+            {"type": "code", "lang": "cpp", "text": "__global__ __vector__ void add(__gm__ float* x, __gm__ float* y, __gm__ float* z)\n{\n    asc_copy_gm2ub(x_local, x, len);\n    asc_add(z_local, x_local, y_local, len);\n    asc_copy_ub2gm(z, z_local, len);\n}"}
+          ]
+        }
+      ]
+    }
+  ]
+}
